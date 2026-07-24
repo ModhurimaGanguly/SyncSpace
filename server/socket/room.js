@@ -7,6 +7,7 @@ function roomHandler(io, socket) {
         console.log("Join event received:", roomId);
         // Join the Socket.IO room
         socket.join(roomId);
+        socket.roomId = roomId;
 
         // Create the room if it doesn't exist
         if (!rooms[roomId]) {
@@ -43,7 +44,33 @@ function roomHandler(io, socket) {
             users: rooms[roomId]
         });
     });
+    //Disconnect Handler
+    socket.on("disconnect", () => {
 
+        const roomId = socket.roomId;
+
+        if (!roomId || !rooms[roomId]) return;
+
+        // Remove socket id
+        rooms[roomId] = rooms[roomId].filter(
+            id => id !== socket.id
+        );
+        
+        console.log("Users after disconnect:", rooms[roomId]);
+
+        // Delete room if empty
+        if (rooms[roomId].length === 0) {
+            delete rooms[roomId];
+        }
+
+        // Send updated users
+        io.to(roomId).emit("room-users", {
+            roomId,
+            users: rooms[roomId] || []
+        });
+
+        console.log("Updated Rooms" ,rooms);
+    });
 }
 
 module.exports = roomHandler;

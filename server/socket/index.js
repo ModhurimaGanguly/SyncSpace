@@ -8,12 +8,6 @@ function initializeSocket(io) {
 
         roomHandler(io, socket);
 
-        socket.on("disconnect", () => {
-
-            console.log(`User Disconnected : ${socket.id}`);
-
-        });
-
     });
 
 }
