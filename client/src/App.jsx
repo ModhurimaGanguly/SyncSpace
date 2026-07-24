@@ -5,6 +5,7 @@ function App() {
   const [roomId, setRoomId] = useState("");
   const [joined, setJoined] = useState(false);
   const [users, setUsers] = useState([]);
+  const [code, setCode] = useState("");
 
   const joinRoom = () => {
     console.log("Join button clicked");
@@ -37,10 +38,14 @@ function App() {
       setUsers(data.users);
     });
 
+    socket.on("receive-code", (newCode) => {
+      setCode(newCode);
+    })
     return () => {
       socket.off("room-joined");
       socket.off("user-joined");
       socket.off("room-users");
+      socket.off("received-code");
     };
   }, []);
 
@@ -60,13 +65,31 @@ function App() {
       </button>
       <hr />
 
-      <h2>👥 Active Users ({users.length})</h2>
 
+      <h2>👥 Active Users ({users.length})</h2>
       <ul>
         {users.map((user) => (
           <li key={user}>{user}</li>
         ))}
       </ul>
+      <h2>Code Editor</h2>
+
+      <textarea
+        value={code}
+        onChange={(e) => {
+          const newCode = e.target.value;
+
+          setCode(newCode);
+
+          socket.emit("code-change", {
+            roomId,
+            code: newCode,
+          });
+        }}
+        rows={15}
+        cols={80}
+        placeholder="Start typing..."
+      />
     </div>
   );
 }

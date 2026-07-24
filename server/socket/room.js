@@ -55,7 +55,7 @@ function roomHandler(io, socket) {
         rooms[roomId] = rooms[roomId].filter(
             id => id !== socket.id
         );
-        
+
         console.log("Users after disconnect:", rooms[roomId]);
 
         // Delete room if empty
@@ -69,7 +69,15 @@ function roomHandler(io, socket) {
             users: rooms[roomId] || []
         });
 
-        console.log("Updated Rooms" ,rooms);
+    });
+    console.log("Updated Rooms", rooms);
+
+    socket.on("code-change", ({ roomId, code }) => {
+
+        console.log("Code received:", code);
+
+        socket.to(roomId).emit("receive-code", code);
+
     });
 }
 
