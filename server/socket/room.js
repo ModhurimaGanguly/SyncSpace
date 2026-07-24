@@ -79,6 +79,12 @@ function roomHandler(io, socket) {
         socket.to(roomId).emit("receive-code", code);
 
     });
+
+    socket.on("language-change", ({ roomId, language }) => {
+
+        socket.to(roomId).emit("receive-language", language);
+
+    });
 }
 
 module.exports = roomHandler;

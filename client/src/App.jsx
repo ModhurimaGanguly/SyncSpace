@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import socket from "./socket/socket";
+import Editor from "@monaco-editor/react";
 
 function App() {
   const [roomId, setRoomId] = useState("");
   const [joined, setJoined] = useState(false);
   const [users, setUsers] = useState([]);
   const [code, setCode] = useState("");
+  const [language, setLanguage] = useState("JavaScript");
 
   const joinRoom = () => {
     console.log("Join button clicked");
@@ -23,6 +25,7 @@ function App() {
     }
   };
 
+  //first useeffect
   useEffect(() => {
     socket.on("room-joined", (data) => {
       console.log("Server Response:", data);
@@ -40,12 +43,18 @@ function App() {
 
     socket.on("receive-code", (newCode) => {
       setCode(newCode);
-    })
+    });
+
+    socket.on("receive-language", (newLanguage) => {
+      setLanguage(newLanguage);
+    });
+
     return () => {
       socket.off("room-joined");
       socket.off("user-joined");
       socket.off("room-users");
       socket.off("received-code");
+      socket.off("receive-language");
     };
   }, []);
 
@@ -73,11 +82,36 @@ function App() {
         ))}
       </ul>
       <h2>Code Editor</h2>
+      <label htmlFor="language">Language: </label>
 
-      <textarea
-        value={code}
+      <select
+        id="language"
+        value={language}
         onChange={(e) => {
-          const newCode = e.target.value;
+          const newLanguage = e.target.value;
+
+          setLanguage(newLanguage);
+
+          socket.emit("language-change", {
+            roomId,
+            language: newLanguage,
+          });
+        }}
+      >
+        <option value="javascript">JavaScript</option>
+        <option value="python">Python</option>
+        <option value="cpp">C++</option>
+        <option value="java">Java</option>
+        <option value="c">C</option>
+        <option value="typescript">TypeScript</option>
+      </select>
+      <Editor
+        height="500px"
+        language={language}
+        theme="vs-dark"
+        value={code}
+        onChange={(value) => {
+          const newCode = value || "";
 
           setCode(newCode);
 
@@ -86,9 +120,6 @@ function App() {
             code: newCode,
           });
         }}
-        rows={15}
-        cols={80}
-        placeholder="Start typing..."
       />
     </div>
   );
