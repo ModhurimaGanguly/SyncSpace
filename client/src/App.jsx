@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import socket from "./socket/socket";
 import Editor from "@monaco-editor/react";
 import axios from "axios";
+import Whiteboard from "./components/Whiteboard";
 
 function App() {
   const [roomId, setRoomId] = useState("");
@@ -258,6 +259,13 @@ function App() {
         {output}
       </pre>
 
+      {/* Whiteboard */}
+      <h2 style={{ marginTop: "40px" }}>📝 Whiteboard</h2>
+
+      <Whiteboard
+        roomId={roomId}
+        joined={joined}
+      />
     </div>
   );
 }

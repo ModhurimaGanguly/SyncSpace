@@ -53,21 +53,28 @@ function initializeSocket(io) {
       });
     });
 
+
     // ========== WHITEBOARD ==========
     socket.on("draw", ({ roomId, data }) => {
       const room = rooms.get(roomId);
+
       if (!room) return;
 
+      console.log("🖍 Draw received from:", socket.id);
+
       room.drawing.push(data);
-      socket.to(roomId).emit("draw", data);
+
+      io.to(roomId).emit("draw", data);
     });
 
     socket.on("clear-board", ({ roomId }) => {
       const room = rooms.get(roomId);
+
       if (!room) return;
 
       room.drawing = [];
-      socket.to(roomId).emit("clear-board");
+
+      io.to(roomId).emit("clear-board");
     });
 
     // ========== CURSOR (optional but nice) ==========

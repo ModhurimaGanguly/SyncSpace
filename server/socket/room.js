@@ -2,7 +2,7 @@ const rooms = require("./rooms");
 
 function roomHandler(io, socket) {
 
-    socket.on("join-room", (roomId) => {
+    socket.on("join-room", ({ roomId, username }) => {
 
         console.log("Join event received:", roomId);
         // Join the Socket.IO room
@@ -80,10 +80,18 @@ function roomHandler(io, socket) {
 
     });
 
+    //language change
     socket.on("language-change", ({ roomId, language }) => {
 
         socket.to(roomId).emit("receive-language", language);
 
+    });
+
+    //whiteboard
+    socket.on("draw-line", ({ roomId, line }) => {
+        console.log("SERVER RECEIVED DRAW:", roomId);
+
+        socket.to(roomId).emit("receive-line", line);
     });
 }
 
