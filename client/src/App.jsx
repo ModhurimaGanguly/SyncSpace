@@ -3,6 +3,8 @@ import socket from "./socket/socket";
 import Editor from "@monaco-editor/react";
 import axios from "axios";
 import Whiteboard from "./components/Whiteboard";
+import { Group, Panel, Separator } from "react-resizable-panels";
+import "./App.css";
 
 function App() {
   const [roomId, setRoomId] = useState("");
@@ -13,7 +15,10 @@ function App() {
   const [language, setLanguage] = useState("cpp");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isOutputOpen, setIsOutputOpen] = useState(true);
+  const [theme, setTheme] = useState("dark"); // "dark" | "light"
 
+  // ========== RUN CODE ==========
   const runCode = async () => {
     if (!code.trim()) {
       setOutput("Please write some code.");
@@ -23,14 +28,12 @@ function App() {
     try {
       setLoading(true);
       setOutput("Running...");
+      setIsOutputOpen(true); // Open terminal automatically when running
 
-      const response = await axios.post(
-        "http://localhost:5000/execute",
-        {
-          code,
-          language,
-        }
-      );
+      const response = await axios.post("http://localhost:5000/execute", {
+        code,
+        language,
+      });
 
       if (response.data.success) {
         setOutput(response.data.output);
@@ -39,39 +42,35 @@ function App() {
       }
     } catch (err) {
       console.error(err);
-
       setOutput(
-        err.response?.data?.error ||
-        "Unable to connect to the server."
+        err.response?.data?.error || "Unable to connect to the server."
       );
     } finally {
       setLoading(false);
     }
   };
+
+  // ========== DARK / LIGHT THEME TOGGLE ==========
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
   // ========== JOIN ROOM ==========
   const joinRoom = () => {
-    console.log("Join button clicked");
-    console.log("Current socket connected?", socket.connected);
-
     if (!roomId.trim() || !username.trim()) {
       alert("Please enter both Username and Room ID");
       return;
     }
 
-    // Force connect
     if (!socket.connected) {
-      console.log("Connecting socket...");
       socket.connect();
     }
 
-    console.log("Emitting join-room →", { roomId, username });
     socket.emit("join-room", { roomId, username });
   };
 
   // ========== SOCKET EVENTS ==========
   useEffect(() => {
-    console.log("Setting up socket listeners...");
-
     socket.on("connect", () => {
       console.log("✅ Socket connected with id:", socket.id);
     });
@@ -80,9 +79,7 @@ function App() {
       console.error("❌ Connection error:", err.message);
     });
 
-    // This is the most important event
     socket.on("room-state", (state) => {
-      console.log("🎉 Successfully joined! Room state:", state);
       setJoined(true);
       setCode(state.code || "// Start coding together...");
       setLanguage(state.language || "cpp");
@@ -90,17 +87,14 @@ function App() {
     });
 
     socket.on("user-joined", ({ users }) => {
-      console.log("User joined →", users);
       setUsers(users);
     });
 
     socket.on("user-left", ({ users }) => {
-      console.log("User left →", users);
       setUsers(users);
     });
 
     socket.on("code-update", ({ code, language }) => {
-      console.log("Code updated from another user");
       setCode(code);
       if (language) setLanguage(language);
     });
@@ -115,182 +109,163 @@ function App() {
     };
   }, []);
 
-  // Disconnect when component unmounts
   useEffect(() => {
     return () => {
       if (socket.connected) {
-        console.log("Disconnecting socket...");
         socket.disconnect();
       }
     };
   }, []);
 
   return (
-    <div style={{
-      padding: "40px",
-      background: "#1a1a1a",
-      color: "white",
-      minHeight: "100vh",
-      fontFamily: "Inter, system-ui, sans-serif"
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "30px" }}>
-        <span style={{ fontSize: "32px" }}>🚀</span>
-        <h1 style={{ margin: 0, fontSize: "28px" }}>SyncSpace</h1>
-      </div>
+    <div className={`app-container ${theme}`}>
+      {/* Top Navbar */}
+      <header className="top-navbar">
+        <div className="brand">
+          <span className="logo-icon">🚀</span>
+          <h2>SyncSpace</h2>
+        </div>
 
-      {/* Join Form */}
-      {!joined ? (
-        <div style={{ display: "flex", gap: "12px", marginBottom: "30px", alignItems: "center" }}>
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="text"
-            placeholder="Room ID"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-            style={inputStyle}
-          />
-          <button onClick={joinRoom} style={buttonStyle}>
-            Join Room
+        {/* Join Room Form or User Info */}
+        <div className="room-controls">
+          {!joined ? (
+            <div className="join-inputs">
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input-field"
+              />
+              <input
+                type="text"
+                placeholder="Room ID"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="input-field"
+              />
+              <button onClick={joinRoom} className="join-btn">
+                Join Room
+              </button>
+            </div>
+          ) : (
+            <div className="joined-tag">
+              <span className="status-dot">●</span>
+              <span>
+                <strong>{username}</strong> @ <strong>{roomId}</strong>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Controls */}
+        <div className="action-bar">
+          <select
+            value={language}
+            onChange={(e) => {
+              const newLang = e.target.value;
+              setLanguage(newLang);
+              if (joined) {
+                socket.emit("code-change", { roomId, code, language: newLang });
+              }
+            }}
+            className="lang-select"
+          >
+            <option value="cpp">C++</option>
+            <option value="c">C</option>
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="java">Java</option>
+          </select>
+
+          <button onClick={toggleTheme} className="theme-toggle-btn">
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+          </button>
+
+          <button onClick={runCode} disabled={loading} className="run-btn">
+            {loading ? "Running..." : "▶ Run Code"}
           </button>
         </div>
-      ) : (
-        <p style={{ color: "#4ade80", marginBottom: "20px" }}>
-          ✅ Joined as <strong>{username}</strong> in room <strong>{roomId}</strong>
-        </p>
-      )}
+      </header>
 
-      <hr style={{ borderColor: "#333", margin: "20px 0" }} />
+      {/* Main Split Panel Area */}
+      <main className="main-workspace">
+        <Group orientation="horizontal">
+          {/* Left Panel: Monaco Code Editor */}
+          <Panel defaultSize="50%" minSize="30%">
+            <div className="panel-container">
+              <div className="panel-header">
+                <span>Code Editor</span>
+                {joined && (
+                  <div className="active-users">
+                    👥 Users ({users.length}): {users.join(", ")}
+                  </div>
+                )}
+              </div>
+              <div className="editor-wrapper">
+                <Editor
+                  height="100%"
+                  language={language}
+                  theme={theme === "dark" ? "vs-dark" : "light"}
+                  value={code}
+                  onChange={(value) => {
+                    const newCode = value || "";
+                    setCode(newCode);
+                    if (joined) {
+                      socket.emit("code-change", {
+                        roomId,
+                        code: newCode,
+                        language,
+                      });
+                    }
+                  }}
+                  options={{
+                    fontSize: 14,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    padding: { top: 12 },
+                  }}
+                />
+              </div>
+            </div>
+          </Panel>
 
-      {/* Active Users */}
-      <h2 style={{ fontSize: "18px", display: "flex", alignItems: "center", gap: "8px" }}>
-        👥 Active Users ({users.length})
-      </h2>
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {users.map((user, i) => (
-          <li key={i} style={{ padding: "4px 0" }}>{user}</li>
-        ))}
-      </ul>
+          {/* Resizable Separator Handle */}
+          <Separator className="resize-handle" />
 
-      {/* Language */}
-      <div style={{ margin: "20px 0" }}>
-        <label>Language: </label>
-        <select
-          value={language}
-          onChange={(e) => {
-            const newLang = e.target.value;
-            setLanguage(newLang);
-            if (joined) {
-              socket.emit("code-change", { roomId, code, language: newLang });
-            }
-          }}
-          style={{
-            ...inputStyle,
-            width: "140px",
-            cursor: "pointer"
-          }}
+          {/* Right Panel: Fabric Whiteboard */}
+          <Panel defaultSize="50%" minSize="30%">
+            <div className="panel-container">
+              <div className="panel-header">
+                <span>📝 Whiteboard</span>
+              </div>
+              <div className="whiteboard-wrapper">
+                <Whiteboard roomId={roomId} joined={joined} theme={theme} />
+              </div>
+            </div>
+          </Panel>
+        </Group>
+      </main>
+
+      {/* Bottom Collapsible Terminal Output */}
+      <footer className={`output-drawer ${isOutputOpen ? "open" : "closed"}`}>
+        <div
+          className="drawer-header"
+          onClick={() => setIsOutputOpen(!isOutputOpen)}
         >
-          <option value="javascript">JavaScript</option>
-          <option value="typescript">TypeScript</option>
-          <option value="python">Python</option>
-          <option value="cpp">C++</option>
-          <option value="c">C</option>
-          <option value="java">Java</option>
-        </select>
-      </div>
-
-      {/* Editor */}
-      <Editor
-        height="500px"
-        language={language}
-        theme="vs-dark"
-        value={code}
-        onChange={(value) => {
-          const newCode = value || "";
-          setCode(newCode);
-          if (joined) {
-            socket.emit("code-change", {
-              roomId,
-              code: newCode,
-              language,
-            });
-          }
-        }}
-        options={{
-          fontSize: 15,
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          padding: { top: 16 },
-        }}
-      />
-
-      {/* Run Button */}
-      <button
-        onClick={runCode}
-        disabled={loading}
-        style={{
-          ...buttonStyle,
-          marginTop: "20px",
-          marginBottom: "20px",
-        }}
-      >
-        {loading ? "Running..." : "▶ Run Code"}
-      </button>
-
-      {/* Output */}
-      <h3>Output</h3>
-      <pre
-        style={{
-          background: "#111",
-          color: "#00ff88",
-          padding: "15px",
-          borderRadius: "8px",
-          minHeight: "120px",
-          whiteSpace: "pre-wrap",
-          overflowX: "auto",
-        }}
-      >
-        {output}
-      </pre>
-
-      {/* Whiteboard */}
-      <h2 style={{ marginTop: "40px" }}>📝 Whiteboard</h2>
-
-      <Whiteboard
-        roomId={roomId}
-        joined={joined}
-      />
+          <span className="title">Terminal Output</span>
+          <button className="toggle-btn">{isOutputOpen ? "▼" : "▲"}</button>
+        </div>
+        {isOutputOpen && (
+          <div className="terminal-content">
+            <pre>{output || "Output will appear here after execution..."}</pre>
+          </div>
+        )}
+      </footer>
     </div>
   );
 }
-
-
-// Styles
-const inputStyle = {
-  padding: "10px 14px",
-  borderRadius: "8px",
-  border: "1px solid #444",
-  background: "#2a2a2a",
-  color: "white",
-  fontSize: "14px",
-  outline: "none",
-};
-
-const buttonStyle = {
-  padding: "10px 22px",
-  borderRadius: "8px",
-  border: "none",
-  background: "#2563eb",
-  color: "white",
-  fontWeight: "600",
-  cursor: "pointer",
-  fontSize: "14px",
-};
 
 export default App;
